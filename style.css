@@ -6,6 +6,7 @@ body{
     background:url(wall.jpg);
     background-size: cover;
     font-family:Verdana, Geneva, Tahoma, sans-serif;
+    box-sizing: border-box;
 }
 
 
