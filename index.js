@@ -1,349 +1,301 @@
-let add=document.querySelector(".add-btn");
-let remove=document.querySelector(".remove-btn");
+let addButton=document.querySelector('.add-btn');
+let inputContainer=document.querySelector(".container");
+let textAreaContainer=document.querySelector(".inputfield");
+let ticketMainContainer=document.querySelector(".ticket-main");
+let addFlag=true;
+let allInputColors=document.querySelectorAll(".container-box");
+let removeButton=document.querySelector(".remove-btn");
+let removeFlag=false;
 let trashIcon=document.querySelector(".fa-trash");
-let container=document.querySelector(".container");
-let input=document.querySelector(".inputfield");
-let ticketMain=document.querySelector(".ticket-main");
-let toolBox=document.querySelectorAll(".tool-down .box")
-let insertTool=document.querySelectorAll(".container-box");
-let ticketWrapper=document.querySelectorAll(".ticket-wrapper");
-let flag=true;
-let deleteFlag=false;
-let selectFlag=true;
+let colorsArr=['red','blue','orange','green'];
+let priorityArr=['Urgent','To-do','Hold','Done'];
+var uid = new ShortUniqueId();
+let filterBox=document.querySelectorAll(".box")
+let ticketArr=[];
 
+loadLocalStorage();
 
-
-// color and status array and default color is red, default status is Urgent
-
-let allColors=["red","blue","orange","green"];
-let allStatus=["Urgent","To-do","Hold","Done"];
-let currStatus=allStatus[0];
-let inputColor=allColors[0];
-
-//task ticket delete event listener
-
-for(let i=0;i<ticketWrapper.length;i++)
+function loadLocalStorage()
 {
-    ticketWrapper[i].addEventListener('click',function(){
-        if(deleteFlag==true)
-        {
-            console.log(ticketWrapper[i]);
-            ticketWrapper[i].remove();
-        }
+    if(localStorage.getItem("tickets"))
+    {
+        let strArr=localStorage.getItem("tickets");
+        let parseArr=JSON.parse(strArr);
+        ticketArr=parseArr;
+        loadAllTickets(ticketArr);
+    }
+}
 
-    })
+
+function loadAllTickets(arrayOfTickets)
+{
+    for(let i=0;i<arrayOfTickets.length;i++)
+    {
+        let oneTicket=arrayOfTickets[i];
+        createTicket(oneTicket.task,oneTicket.color,oneTicket.id);
+    }
+}
+ 
+
+
+function removeAllTickets()
+{
+    let oldTickets=document.querySelectorAll(".ticket-wrapper");
+    for(let i=0;i<oldTickets.length;i++)
+    {
+        oldTickets[i].remove();
+    }
 }
 
 
 
-//Remove icon functionality
 
-remove.addEventListener("click",function(){
-    if(deleteFlag)
+//Show add container on add click
+addButton.addEventListener('click',function(){
+    if(addFlag)
     {
-        trashIcon.style.color="black";
+        inputContainer.style.display="flex";
+    }else{
+        inputContainer.style.display="none";
+    }
+    addFlag=!addFlag;
+})
+
+
+
+
+//Input box me enter pe 
+inputContainer.addEventListener('keydown',function(e){
+    let key=e.key;
+    if(key=="Enter")
+    {
+        let active=document.querySelector(".active");//Select which class is active
+        let color=active.classList[0];//Color is present in 0th position in that selected color div
+        createTicket(textAreaContainer.value,color);
+        textAreaContainer.value="";
+        inputContainer.style.display="none";
+        addFlag=!addFlag;
+    }
+})
+
+
+
+
+
+//New ticket create karne ka Method
+function createTicket(task,ticketColor,ticketId)
+{
+    let uniqueId=ticketId;
+    if(uniqueId==undefined)
+    {
+        uniqueId=uid();
+    }
+
+    let priorityIdx=colorsArr.indexOf(ticketColor);//Find index of current color w
+    
+    let ticketContainer=document.createElement("div");
+    ticketContainer.setAttribute("class","ticket-wrapper noselect")
+    ticketContainer.innerHTML=`<div class="ticket-color ${ticketColor} "><p>${priorityArr[priorityIdx]}</p></div>
+                                <div class="ticket-id"><p>${uniqueId}</p></div> 
+                                <div class="task-area">${task}</div>
+                                <div class="lock-unlock"><i class="fa fa-lock"></i></div>`
+
+    ticketMainContainer.appendChild(ticketContainer);
+
+
+
+    //Add event on every ticket of click if delete icon is active and then click to ticket, then it will automatically delete  
+    ticketContainer.addEventListener('click',function(){
+        let thisDivId=uniqueId;
+        
+        //If flag is true means it is active and red
+        if(removeFlag)
+        {
+            ticketContainer.remove();
+            
+            //Remove from ticketArr
+            ticketArr=ticketArr.filter((item)=>{
+                return item.id!=thisDivId;
+            })
+            
+            
+            // Update local storage
+            updateLocalStorage();;
+        }
+    })
+
+
+
+
+     // Lock Unlock ke liye event 
+     let lockUnlock=ticketContainer.querySelector(".lock-unlock i");
+     lockUnlock.addEventListener('click',function(){
+        
+        let taskArea=ticketContainer.querySelector(".task-area");
+        let thisDivId=uniqueId;
+
+        if(lockUnlock.classList.contains("fa-lock"))
+        {
+            lockUnlock.classList.remove("fa-lock");
+            lockUnlock.classList.add("fa-unlock");
+            taskArea.setAttribute("contenteditable","true");
+        }else{
+            lockUnlock.classList.add("fa-lock");
+            lockUnlock.classList.remove("fa-unlock");
+            taskArea.removeAttribute("contenteditable");
+
+            // When you lock again then you have to save your current task in ticketArr
+            let myTicketIdx=findIndexOfTicketArrById(thisDivId);
+            ticketArr[myTicketIdx].task=taskArea.textContent;
+
+            // Update local storage
+            updateLocalStorage();
+        }
+
+       
+
+
+            
+     })
+ 
+
+
+
+
+    //Handle task Color || Priority
+    let currentTicketColor=ticketContainer.querySelector(".ticket-color");//Select newly created ticket
+    currentTicketColor.addEventListener('click',function()
+    {
+        let color=currentTicketColor.classList[1];
+        let thisDivId=uniqueId;
+        let index=colorsArr.indexOf(color); //Same work as colorIndex code above
+        let nextIndex=(index+1)%colorsArr.length;
+        
+
+        //Update Ui
+        currentTicketColor.classList.remove(color);
+        currentTicketColor.classList.add(colorsArr[nextIndex]);
+
+        let paragraph=currentTicketColor.querySelector('p');
+        paragraph.innerText=priorityArr[nextIndex];
+
+
+        //Update ticketArr as well
+        
+        let myticketIdx=findIndexOfTicketArrById(thisDivId);
+        ticketArr[myticketIdx].color=colorsArr[nextIndex];
+
+        // Update local storage
+        updateLocalStorage();
+
+    })
+
+
+
+    if(ticketId==undefined)//If ticketId is not pass in createFunction Parameter means it is new ticket
+    {
+
+        let ticketObj={
+            id:uniqueId,
+            color:ticketColor,
+            task:task
+        }
+        
+        ticketArr.push(ticketObj);
+
+        // Update local storage
+        updateLocalStorage();
+    }
+
+}
+
+
+
+
+
+
+//Container colors me active ke liye event 
+
+ for(let i=0;i<allInputColors.length;i++)
+ {  
+    let currentInputColor=allInputColors[i];
+
+    currentInputColor.addEventListener('click',function(){
+        let activeBox=document.querySelector(".active"); //Find which one div is active
+        activeBox.classList.remove("active");//Simply remove it
+        currentInputColor.classList.add("active");//Add to current div
+    })
+ }
+
+
+
+
+
+
+ //Remove button functionality
+
+ removeButton.addEventListener("click",function(){
+    if(removeFlag)//If flag true means button is already red (active )
+    {
+        trashIcon.style.color="black";//So make it false
     }else{
         trashIcon.style.color="red";
     }
+    removeFlag=!removeFlag;
 
-    deleteFlag=!deleteFlag;
-   
-})
-
+ })
 
 
-//Show or hide container
+
+
+
+
  
-add.addEventListener("click",function(){
-    if(flag)
-    {
-        container.style.display="flex";
-    }else{
-        container.style.display="none";
-    }   
-    flag=!flag;
-})
+//Filter Box functionality
 
-
-
-//Select color at time of inserting
-
-for(let i=0;i<insertTool.length;i++)
+for(let i=0;i<filterBox.length;i++)
 {
-    insertTool[i].addEventListener('click',function(){
-        for(let j=0;j<insertTool.length;j++)
+
+
+   filterBox[i].addEventListener('click',function(){
+       let currentFilterColor=filterBox[i].classList[1];       
+       let filteredArr=ticketArr.filter((item)=>{
+           return item.color==currentFilterColor;
+       })
+       
+       removeAllTickets();
+       loadAllTickets(filteredArr);
+   })
+
+   filterBox[i].addEventListener('dblclick',function(){
+       removeAllTickets();
+       loadAllTickets(ticketArr);
+   })
+}
+
+
+
+
+
+
+//Functions 
+
+function findIndexOfTicketArrById(yourId)
+{
+    let index=-1;
+    for(let i=0;i<ticketArr.length;i++)
         {
-            insertTool[j].classList.remove("active");
-        }
-        insertTool[i].classList.add("active");
-        
-        inputColor=insertTool[i].classList[0];
-        let colorIndex=-1;
-        for(let i=0;i<allColors.length;i++)
-        {
-            if(inputColor==allColors[i])
+            if(ticketArr[i].id==yourId)
             {
-                colorIndex=i;
+                index=i;
                 break;
             }
         }
-
-        currStatus=allStatus[colorIndex];
-    })   
+        return index;
 }
 
 
-
-
-// Make new Ticket
-
-container.addEventListener('keydown',function(e){
-    let key=e.key;
-    if(key=='Enter'){
-        createTicket(input.value,inputColor);
-        input.value = ""; 
-        container.style.display="none";
-        flag=!flag;
-    }
-
-
-})
-
-
-function createTicket(task,ticketColor,ticketId,ticketStatus){
-    if(task==undefined||task=="")
-    {
-        return;
-    }
-    
-    let uniqueId;
-    if(ticketId==undefined)
-    {
-        uniqueId=uid();
-    }else{
-        uniqueId=ticketId;
-    }
-
-    if(ticketStatus==undefined)
-    {
-        ticketStatus=currStatus;
-    }
-
-    let ticketCont = document.createElement("div");
-    ticketCont.setAttribute('class','ticket-wrapper');
-    ticketCont.innerHTML = `<div class="noselect ticket-color ${ticketColor}" ><p>${ticketStatus}</p></div>
-                    <div class="ticket-id"><p>${uniqueId}</p></div>
-                    <div class="task-area">${task}</div>
-                    <div class="lock-unlock"><i class="fa fa-lock"></i></div>`;
-
-    ticketMain.appendChild(ticketCont);
-
-    //Save Ticket Details
-    if(ticketId==undefined)
-    {
-        let obj={
-            "color":ticketColor,
-            "id":uniqueId,
-            "task":task,
-            "status":ticketStatus
-        }
-        
-        ticketDetails.push(obj);
-        //  console.log(ticketDetails);
-
-        updateLocalStorage(ticketDetails);
-        
-    }
-
-
-     //Lock unlock feature
-     let lock=ticketCont.querySelector(".lock-unlock i");
-     let textArea=ticketCont.querySelector(".task-area");
-     lock.addEventListener("click",function(){
-        console.log(lock.classList[1]);
-        
-        if(lock.classList[1]=="fa-lock")
-        {
-            lock.classList.remove("fa-lock");
-            lock.classList.add("fa-unlock");
-            
-            textArea.setAttribute("contenteditable","true");
-
-        }else{
-            lock.classList.remove("fa-unlock");
-            lock.classList.add("fa-lock");
-            
-            textArea.setAttribute("contenteditable","false");
-        }
-        
-        
-        let index=getTicketByIndex(uniqueId);
-        ticketDetails[index].task=textArea.textContent;
-
-        updateLocalStorage(ticketDetails)
-     })
-
-
-    //delete ticket container event listener apply on every ticker container at the time of formation
-    ticketCont.addEventListener('click',function(){
-        if(deleteFlag==true)
-        {
-            // console.log(ticketCont);
-            ticketCont.remove();
-
-            let index=getTicketByIndex(uniqueId);
-            ticketDetails.splice(index,1); 
-
-            //take whole ticket array and store it on local storage
-            updateLocalStorage(ticketDetails)
-        }
-
-    })
-
-
-
-    //Change color of ticket container 
-
-    let ticketColorBand=ticketCont.querySelector(".ticket-color");
-
-    ticketColorBand.addEventListener("click",function(){
-        let color=ticketColorBand.classList[2];
-
-        let pos=-1;
-        for(let i=0;i<allColors.length;i++)
-        {
-            if(color==allColors[i])
-            {
-                pos=i;
-                break;
-            }
-        }
-    
-        ticketColorBand.classList.remove(color);
-        
-        
-        pos=(pos+1)%allColors.length;
-        ticketColorBand.classList.add(allColors[pos]);
-
-        console.log(allColors[pos])
-        
-        //change color in array 
-        let index=getTicketByIndex(uniqueId);
-        ticketDetails[index].color=allColors[pos];
-        ticketDetails[index].status=allStatus[pos];
-
-        //change on desktop status by dom manupulation
-        ticketColorBand.childNodes[0].textContent=allStatus[pos];
-        updateLocalStorage(ticketDetails)
-
-    })
-
-
-    //Get ticket index of that unique id
-    function getTicketByIndex(uniqueId)
-    {
-        for(let i=0;i<ticketDetails.length;i++)
-        {
-            if(ticketDetails[i].id==uniqueId)
-            {
-                return i;
-            }
-        }
-    }
-    
-
-    //Update new data to local storage
-    function updateLocalStorage(ticketDetails)
-    {
-        let stringifyTicketsArr=JSON.stringify(ticketDetails);
-        localStorage.setItem("tickets",stringifyTicketsArr);
-    }
-
-}
-
-
-
-//Select all one type of task filter out selective color tasks
-
-for(let i=0;i<toolBox.length;i++)
+function updateLocalStorage()
 {
-    toolBox[i].addEventListener("click",function(){
-
-        let allTickets=document.querySelectorAll(".ticket-wrapper");
-        let currentColor=toolBox[i].classList[1];
-        let newFilteredArray=[];
-        
-            //push same color task objects into newFilter Array
-            for(let i=0;i<ticketDetails.length;i++)
-            {
-                if(ticketDetails[i].color==currentColor)
-                {
-                    newFilteredArray.push(ticketDetails[i]);
-                }
-            }
-            
-            //remove all visible desktop tickets
-            for(let i=0;i<allTickets.length;i++)
-            {
-                allTickets[i].remove();
-            }
-    
-            
-            for(let i=0;i<newFilteredArray.length;i++)
-            {
-                createTicket(newFilteredArray[i].task,newFilteredArray[i].color,newFilteredArray[i].id,newFilteredArray[i].status);
-                
-            }
-            console.log(newFilteredArray);
-
-    })
-
-    toolBox[i].addEventListener("dblclick",function()
-    {
-        let allTickets=document.querySelectorAll(".ticket-wrapper");
-        
-        for(let i=0;i<allTickets.length;i++)
-        {
-            allTickets[i].remove();
-        }
-        
-        for(let i=0;i<ticketDetails.length;i++)
-        {
-        createTicket(ticketDetails[i].task,ticketDetails[i].color,ticketDetails[i].id,ticketDetails[i].status);
-        }
-    
-    })
-    
- 
-
-
-}
-
-
-
-//Add tickets from localStorage
-
-var uid = new ShortUniqueId();
-
-// let ticketDetails=[{
-//     "color":"red",
-//     "id":"lksdflk",
-//     "task":"This is a one",
-//      "status":"Urgent"
-// }];
-
-let ticketDetails=[];
-
-if(localStorage.getItem("tickets"))
-{
-
-    let stringArr=localStorage.getItem("tickets");
-    let arr=JSON.parse(stringArr);
-    ticketDetails=arr;
-
-    for(let i=0;i<ticketDetails.length;i++)
-    {
-    createTicket(ticketDetails[i].task,ticketDetails[i].color,ticketDetails[i].id,ticketDetails[i].status);
-    }
-
+    localStorage.setItem("tickets",JSON.stringify(ticketArr));
 }
